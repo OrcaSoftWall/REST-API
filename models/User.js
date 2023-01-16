@@ -21,6 +21,8 @@ const userSchema = new Schema({
 
     posts: [{ type: ObjectId, ref: "Origami" }]
 
+}, {
+    timestamps: { createdAt: 'created_at'}
 });
 
 userSchema.methods = {
