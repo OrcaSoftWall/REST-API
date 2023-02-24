@@ -17,7 +17,15 @@ module.exports = {
                     const token = utils.jwt.createToken({ id: createdUser._id });
                     res.header(config.authCookieName, token).send(createdUser)
                 })
-                .catch(next)
+                // .catch(next)
+                .catch(err => {
+                    if (err.code == 11000 && err.name === 'MongoServerError') {
+                        res.status(403).send({ "error": "true", "message": "User already exist!" })
+                        // res.status(403).send("Not Found");
+                        return
+                    }
+                    console.error(err)
+                })
         },
 
         verifyLogin: (req, res, next) => {
@@ -50,15 +58,28 @@ module.exports = {
 
         login: (req, res, next) => {
             const { username, password } = req.body;
+            const errorHandler = () => {
+                return res.status(401).send({ "error": "true", "message": "Invalid username or password!" });
+            }
+
             models.User.findOne({ username })
-                .then((user) => Promise.all([user, user.matchPassword(password)]))
-                .then(([user, match]) => {
-                    if (!match) {
-                        res.status(401).send('Invalid password');
+                .then(user => {
+                    if (!user) {
+                        errorHandler();
                         return;
                     }
-                    const token = utils.jwt.createToken({ id: user._id });
-                    res.header(config.authCookieName, token).send(user);     // 'x-auth-token'
+
+                    Promise.all([user, user.matchPassword(password)])
+                        .then(([user, match]) => {
+                            if (!match) {
+                                errorHandler();
+                                return;
+                            }
+
+                            const token = utils.jwt.createToken({ id: user._id });
+                            res.header(config.authCookieName, token).send(user);     // 'x-auth-token'
+                        })
+                        .catch(errorHandler);
                 })
                 .catch(next);
         },
