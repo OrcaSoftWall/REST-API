@@ -2,7 +2,7 @@ const models = require('../models');
 
 module.exports = {
     get: (req, res, next) => {
-        const length = parseInt(req.query.length) ? parseInt(req.query.length) : 20
+        const length = parseInt(req.query.length) ? parseInt(req.query.length) : 200
         const user = (req.query.user != "undefined") ? req.query.user : false
         models.Origami.find(user ? { author: user } : {}).sort('-created_at').limit(length).populate('author', 'username')
             // models.Origami.find().sort('-created_at').limit(length).populate('author', 'username')
