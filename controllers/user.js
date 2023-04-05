@@ -12,6 +12,7 @@ module.exports = {
     post: {
         register: (req, res, next) => {
             const { username, password } = req.body;
+            console.log(username, "     ", password)
             models.User.create({ username, password })
                 .then((createdUser) => {
                     const token = utils.jwt.createToken({ id: createdUser._id });
@@ -84,26 +85,67 @@ module.exports = {
                 .catch(next);
         },
 
+
         logout: (req, res, next) => {
-            const token = req.cookies[config.authCookieName];
+            const authHeader = req.headers.authorization;
+            if (!authHeader) {
+                return res.status(401).send('Missing Authorization header');
+            }
+            const token = authHeader.split(' ')[1];
             console.log('-'.repeat(100));
             console.log(token);
             console.log('-'.repeat(100));
-            models.TokenBlacklist.create({ token })
-                .then(() => {
-                    res.clearCookie(config.authCookieName).send('Logout successfully!');
-                })
-                .catch(next);
+            if (token !== "null") {
+                models.TokenBlacklist.create({ token })
+                    .then(() => {
+                        res.clearCookie(config.authCookieName).send('Logout successfully!');
+                    })
+                    .catch(next);
+            }
         }
     },
 
     put: (req, res, next) => {
         const id = req.params.id;
         const { username, password } = req.body;
-        models.User.update({ _id: id }, { username, password })
-            .then((updatedUser) => res.send(updatedUser))
-            .catch(next)
+        console.log(req.headers.authorization);
+        const token = req.headers.authorization.split(' ')[1] || '';
+        console.log("TOKEN:   ", token);
+
+        utils.jwt.verifyToken(token)
+            .then(data => {
+                if (data.id !== id) {
+                    return Promise.reject(new Error('Unauthorized'));
+                }
+
+                models.User.findById(id)
+                    .then(user => {
+                        user.username = username;
+                        user.password = password;
+                        return user.save();
+                    })
+                    .then(updatedUser => {
+                        console.log(updatedUser)
+                        res.send(updatedUser);
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        res.status(500).send({ "error": err });
+                    });
+            })
+            .catch(err => {
+                console.error(err);
+                res.status(401).send({ "error": "Unauthorized" });
+            });
     },
+
+    // put: (req, res, next) => {
+    //     const id = req.params.id;
+    //     const { username, password } = req.body;
+    //     models.User.update({ _id: id }, { username, password })
+    //         .then((updatedUser) => res.send(updatedUser))
+    //         .catch(next)
+    // },
 
     delete: (req, res, next) => {
         const id = req.params.id;
